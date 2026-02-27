@@ -17,8 +17,39 @@ app.disable("x-powered-by");
 // Helmet 3.21.3 (sin CSP para no romper el boilerplate)
 app.use(helmet({ contentSecurityPolicy: false }));
 
-// CORS abierto (como boilerplate FCC)
-app.use(cors({ origin: "*" }));
+// --- CORS especial para el tester de freeCodeCamp (necesario para que pueda LEER headers) ---
+const FCC_ORIGINS = new Set([
+  "https://www.freecodecamp.org",
+  "https://www.freecodecamp.org/espanol"
+]);
+
+const EXPOSED =
+  "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type";
+
+function setFccCors(req, res) {
+  const origin = req.headers.origin;
+
+  // Si viene desde freeCodeCamp, NO puede ser '*'
+  if (origin && FCC_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Vary", "Origin");
+  } else {
+    // para otros casos, dejamos abierto
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+
+  res.setHeader("Access-Control-Expose-Headers", EXPOSED);
+  res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+// aplicar a TODAS las respuestas (incluye / y /_api/app-info)
+app.use((req, res, next) => {
+  setFccCors(req, res);
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 
 // Body
 app.use(bodyParser.json());
