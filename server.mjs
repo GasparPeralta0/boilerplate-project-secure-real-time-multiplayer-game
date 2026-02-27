@@ -1,6 +1,7 @@
 import http from "http";
 import express from "express";
 import helmet from "helmet";
+import cors from "cors";
 
 // Socket.io v2 (CommonJS) + ESM (mjs) => import robusto
 import socketIoPkg from "socket.io";
@@ -16,6 +17,15 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 app.disable("x-powered-by");
+// CORS: permitir solo a freeCodeCamp para que el tester pueda hacer fetch
+app.use(cors({
+  origin: [
+    "https://www.freecodecamp.org",
+    "https://www.freecodecamp.org/espanol"
+  ],
+  methods: ["GET", "HEAD", "OPTIONS"],
+  allowedHeaders: ["Content-Type"]
+}));
 
 // Helmet 3.21.3
 // Nota: desactivo CSP para evitar que bloquee scripts/socket.io en algunos entornos
@@ -39,6 +49,12 @@ app.use((req, res, next) => {
   res.setHeader("X-XSS-Protection", "1; mode=block");
 
   next();
+});
+
+app.get("/_api/app-info", (req, res) => {
+  res.json({
+    status: "ok"
+  });
 });
 
 // Servir estáticos sin cache
