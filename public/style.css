@@ -1,22 +1,3 @@
-body {
-  margin: 20px;
-}
-
-code {
-  background: #d0d0d5;
-}
-
-canvas {
-  margin: auto;
-}
-
-.container {
-  display: flex;
-  flex-direction: column;
-}
-
-@media (min-width: 800px) {
-  .container {
-    flex-direction: row;
-  }
-}
+body { margin: 0; font-family: system-ui, Arial; }
+canvas { display: block; border: 1px solid #ccc; margin: 12px; }
+.hud { margin: 12px; }
