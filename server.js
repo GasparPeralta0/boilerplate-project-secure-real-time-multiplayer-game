@@ -23,28 +23,35 @@ app.use(helmet({ contentSecurityPolicy: false }));
    CORS (FCC tester usa credentials: "include")
    => NO puede ser "*"
 -------------------------- */
+// --- FCC CORS (browser) ---
+// El tester corre en *.freecodecamp.rocks (y a veces en freecodecamp.org)
 const ALLOWED_ORIGINS = new Set([
-  "https://www.freecodecamp.org",
-  "https://freecodecamp.org",
-  "https://www.freecodecamp.org/espanol",
-  "https://freecodecamp.org/espanol",
   "https://secure-real-time-multiplayer-game.freecodecamp.rocks",
+  "https://www.freecodecamp.org"
 ]);
 
-const EXPOSED_HEADERS =
+const EXPOSE =
   "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type";
 
-function applyCors(req, res) {
+app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.has(origin)) {
+
+  if (ALLOWED_ORIGINS.has(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    res.setHeader("Access-Control-Expose-Headers", EXPOSED_HEADERS);
-    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Expose-Headers", EXPOSE);
+    // OJO: NO uses credentials true con "*"
+    // y no hace falta para el tester, así que NO lo ponemos.
+   }
   }
-}
+)
+  // Preflight
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+
+  next();
+  
 
 // CORS + preflight para todo (antes que estáticos y rutas)
 app.use((req, res, next) => {
