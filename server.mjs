@@ -18,13 +18,39 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.disable("x-powered-by");
 // CORS: permitir solo a freeCodeCamp para que el tester pueda hacer fetch
+import cors from "cors";
+
+const FCC_ORIGINS = [
+  "https://www.freecodecamp.org",
+  "https://www.freecodecamp.org/espanol",
+  "https://freecodecamp.org",
+  "https://freecodecamp.org/espanol"
+];
+
+const EXPOSED = [
+  "x-content-type-options",
+  "x-xss-protection",
+  "cache-control",
+  "pragma",
+  "expires",
+  "surrogate-control",
+  "x-powered-by",
+  "content-type"
+];
+
 app.use(cors({
-  origin: [
-    "https://www.freecodecamp.org",
-    "https://www.freecodecamp.org/espanol"
-  ],
+  origin: FCC_ORIGINS,
   methods: ["GET", "HEAD", "OPTIONS"],
-  allowedHeaders: ["Content-Type"]
+  allowedHeaders: ["Content-Type"],
+  exposedHeaders: EXPOSED
+}));
+
+// Por si el tester hace preflight (OPTIONS) a esa ruta:
+app.options("/_api/app-info", cors({
+  origin: FCC_ORIGINS,
+  methods: ["GET", "HEAD", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
+  exposedHeaders: EXPOSED
 }));
 
 // Helmet 3.21.3
@@ -52,9 +78,7 @@ app.use((req, res, next) => {
 });
 
 app.get("/_api/app-info", (req, res) => {
-  res.json({
-    status: "ok"
-  });
+  res.json({ status: "ok" });
 });
 
 // Servir estáticos sin cache
