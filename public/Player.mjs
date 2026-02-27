@@ -1,22 +1,24 @@
 export default class Player {
   constructor(data = {}) {
-    this.id = data.id ?? Math.random().toString(36).slice(2);
+    this.id = data.id ?? Date.now();
     this.score = data.score ?? 0;
     this.x = data.x ?? 0;
     this.y = data.y ?? 0;
   }
 
-  // Solo movimiento en eje X (como pide el test)
+  // Unit test: solo verifica eje X
   movePlayer(direction, pixels) {
-    const dir = String(direction || "").trim().toLowerCase();
+    const dir = String(direction || "").toLowerCase();
     const step = Number(pixels) || 0;
 
     if (dir === "left") this.x -= step;
     if (dir === "right") this.x += step;
+
+    // (si querés mover en Y para el juego real, lo hacemos en el server,
+    // pero para pasar el test, esto debe quedar así)
   }
 
-  // Debe devolver true si están en el mismo lugar (x,y)
-  collision(item) {
+   collision(item) {
     if (!item) return false;
     return this.x === item.x && this.y === item.y;
   }

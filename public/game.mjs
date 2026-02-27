@@ -1,6 +1,6 @@
 const socket = io();
 
-const canvas = document.getElementById("game");
+const canvas = document.getElementById("game-window");
 const ctx = canvas.getContext("2d");
 
 const meEl = document.getElementById("me");
@@ -15,12 +15,12 @@ const state = {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // coleccionables
+  // collectibles
   for (const c of state.collectibles.values()) {
     ctx.fillRect(c.x, c.y, 18, 18);
   }
 
-  // jugadores
+  // players
   for (const p of state.players.values()) {
     ctx.fillRect(p.x, p.y, 24, 24);
   }
@@ -29,12 +29,14 @@ function draw() {
 }
 
 function updateLeaderboard() {
+  if (!lbEl || !meEl) return;
+
   const players = Array.from(state.players.values()).sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     return String(a.id).localeCompare(String(b.id));
   });
 
-  // anti-XSS: NO uses innerHTML con datos externos
+  // No innerHTML con datos externos (anti-XSS)
   lbEl.innerHTML = "";
   for (const p of players) {
     const li = document.createElement("li");
@@ -50,10 +52,10 @@ socket.on("state", (snap) => {
   state.myId = socket.id;
 
   state.players.clear();
-  snap.players.forEach(p => state.players.set(p.id, p));
+  snap.players.forEach((p) => state.players.set(p.id, p));
 
   state.collectibles.clear();
-  snap.collectibles.forEach(c => state.collectibles.set(c.id, c));
+  snap.collectibles.forEach((c) => state.collectibles.set(c.id, c));
 
   updateLeaderboard();
 });
@@ -75,7 +77,9 @@ socket.on("playerLeft", ({ id }) => {
 
 socket.on("collectibleTaken", (msg) => {
   state.collectibles.delete(msg.collectibleId);
-  if (msg.newCollectible) state.collectibles.set(msg.newCollectible.id, msg.newCollectible);
+  if (msg.newCollectible) {
+    state.collectibles.set(msg.newCollectible.id, msg.newCollectible);
+  }
 
   const p = state.players.get(msg.playerId);
   if (p) p.score = msg.score;
