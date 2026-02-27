@@ -29,25 +29,23 @@ const FCC_ORIGINS = new Set([
 const EXPOSE =
   "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type";
 
-app.use((req, res, next) => {
+function setFccCors(req, res) {
   const origin = req.headers.origin;
 
-  if (origin && FCC_ORIGINS.has(origin)) {
-    // Con credentials, NO puede ser "*"
+  const ok =
+    origin === "https://www.freecodecamp.org" ||
+    origin === "https://secure-real-time-multiplayer-game.freecodecamp.rocks" ||
+    (typeof origin === "string" && origin.endsWith(".freecodecamp.rocks"));
+
+  if (ok) {
     res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Vary", "Origin");
-  } else {
-
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Expose-Headers", EXPOSE);
   }
-
-  res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Expose-Headers", EXPOSE);
-
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
-});
+}
 
 /* ---------------------------
    Body
