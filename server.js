@@ -165,12 +165,11 @@ function randomInt(min, max) {
 }
 
 async function loadGameClasses() {
-  // ✅ clases reales del juego (raíz)
-  const modPlayer = await import("./Player.mjs");
-  const modCollectible = await import("./Collectible.mjs");
+  const modPlayer = await import("./public/Player.mjs");
+  const modCollectible = await import("./public/Collectible.mjs");
 
-  const Player = modPlayer.Player ?? modPlayer.default;
-  const Collectible = modCollectible.Collectible ?? modCollectible.default;
+  const Player = modPlayer.default ?? modPlayer.Player;
+  const Collectible = modCollectible.default ?? modCollectible.Collectible;
 
   return { Player, Collectible };
 }

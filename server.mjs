@@ -9,7 +9,7 @@ import socketIoPkg from "socket.io";
 const socketio = socketIoPkg.default ?? socketIoPkg;
 
 import { Player } from "./Player.js";
-import { Collectible } from "./Collectible.mjs";
+import { Collectible } from "./Collectible.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,7 +33,7 @@ app.use((req, res, next) => {
   res.setHeader("Expires", "0");
   res.setHeader("Surrogate-Control", "no-store");
 
-  res.setHeader("X-Powered-By", "PHP/7.4.3");
+  res.setHeader("X-Powered-By", "PHP 7.4.3");
   next();
 });
 
@@ -88,7 +88,7 @@ app.use(
     setHeaders(res) {
       res.setHeader("Cache-Control", "no-store");
       res.setHeader("X-Content-Type-Options", "nosniff");
-      res.setHeader("X-Powered-By", "PHP/7.4.3");
+      res.setHeader("X-Powered-By", "PHP 7.4.3");
     },
   })
 );
