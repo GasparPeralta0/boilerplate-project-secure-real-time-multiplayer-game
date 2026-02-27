@@ -99,14 +99,26 @@ app.get("/_api/app-info", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
-app.options("/_api/app-info", (req, res) => {
+// Permitir que FCC lea headers del root (para tests 16-19)
+app.options("/", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Access-Control-Expose-Headers",
+  res.setHeader(
+    "Access-Control-Expose-Headers",
     "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type"
   );
   res.sendStatus(204);
+});
+
+app.get("/", (req, res, next) => {
+  // Solo para que FCC pueda leer headers (cross-origin)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader(
+    "Access-Control-Expose-Headers",
+    "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type"
+  );
+  next(); // deja que lo sirva express.static o tu sendFile
 });
 
 /* ---------------------------
