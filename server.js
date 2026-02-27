@@ -88,17 +88,7 @@ app.use(
     },
   })
 );
-
-/* -------------------------
-   API para el tester
--------------------------- */
-app.get("/_api/app-info", (req, res) => {
-  // No pongas "*" acá. Ya se setea por applyFccCors si viene del tester.
-  // Si no viene Origin, igual responde OK.
-  res.json({ status: "ok" });
-});
-
-/* -------------------------
+ /* -------------------------
    Index
 -------------------------- */
 app.get("/", (req, res) => {
