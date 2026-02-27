@@ -17,19 +17,14 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.disable("x-powered-by");
 
-/* ---------------------------
-   Helmet + headers de seguridad
----------------------------- */
+// Helmet 3.21.3
 app.use(helmet({ contentSecurityPolicy: false }));
 
+// Headers requeridos por los tests (para TODO)
 app.use((req, res, next) => {
-  // Anti MIME-sniff
   res.setHeader("X-Content-Type-Options", "nosniff");
-
-  // Anti XSS (extra)
   res.setHeader("X-XSS-Protection", "1; mode=block");
 
-  // No cache
   res.setHeader(
     "Cache-Control",
     "no-store, no-cache, must-revalidate, proxy-revalidate"
@@ -38,94 +33,54 @@ app.use((req, res, next) => {
   res.setHeader("Expires", "0");
   res.setHeader("Surrogate-Control", "no-store");
 
-  // “Generado por PHP 7.4.3”
   res.setHeader("X-Powered-By", "PHP/7.4.3");
-
   next();
 });
 
-/* -----------------------------------------
-   CORS SOLO para freeCodeCamp + Expose-Headers
-   (para que el tester pueda LEER tus headers)
------------------------------------------- */
-const FCC_ORIGINS = new Set([
-  "https://www.freecodecamp.org",
-  "https://www.freecodecamp.org/espanol",
-  "https://freecodecamp.org",
-  "https://freecodecamp.org/espanol",
-]);
-
-const EXPOSED_HEADERS =
+// --- Para que FCC pueda LEER headers cross-origin ---
+const EXPOSE =
   "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type";
 
-function applyFccCors(req, res) {
-  const origin = req.headers.origin;
-  if (origin && FCC_ORIGINS.has(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Expose-Headers", EXPOSED_HEADERS);
-    res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  }
-}
-
-// Aplica CORS (solo si el Origin es FCC)
-app.use((req, res, next) => {
-  applyFccCors(req, res);
-  // Preflight universal sin app.options("*")
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
-});
-
-/* ---------------------------
-   Endpoint que usa el tester
----------------------------- */
-app.get("/_api/app-info", (req, res) => {
-  // ✅ CORS abierto SOLO para este endpoint (para que el tester lea headers sí o sí)
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Expose-Headers",
-    "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type"
-  );
-
-  // ✅ Headers requeridos por los tests
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-  res.setHeader("Cache-Control", "no-store");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.setHeader("Surrogate-Control", "no-store");
-  res.setHeader("X-Powered-By", "PHP/7.4.3");
-
-  res.status(200).json({ status: "ok" });
-});
-
-// Permitir que FCC lea headers del root (para tests 16-19)
-app.options("/", (req, res) => {
+// Aplica CORS abierto SOLO donde FCC suele mirar headers: "/" y "/_api/app-info"
+function allowHeaderRead(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader(
-    "Access-Control-Expose-Headers",
-    "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type"
-  );
+  res.setHeader("Access-Control-Expose-Headers", EXPOSE);
+}
+
+// Preflight para /
+app.options("/", (req, res) => {
+  allowHeaderRead(res);
   res.sendStatus(204);
 });
 
-app.get("/", (req, res, next) => {
-  // Solo para que FCC pueda leer headers (cross-origin)
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Expose-Headers",
-    "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type"
-  );
-  next(); // deja que lo sirva express.static o tu sendFile
+// ✅ MUY IMPORTANTE: FCC suele usar HEAD /
+app.head("/", (req, res) => {
+  allowHeaderRead(res);
+  res.status(200).end();
 });
 
-/* ---------------------------
-   Estáticos
----------------------------- */
-const publicDir = path.join(__dirname, "public");
+// GET / (sirve index pero con CORS para leer headers)
+app.get("/", (req, res) => {
+  allowHeaderRead(res);
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
+// Preflight para app-info
+app.options("/_api/app-info", (req, res) => {
+  allowHeaderRead(res);
+  res.sendStatus(204);
+});
+
+// Endpoint para el tester (JSON + headers visibles)
+app.get("/_api/app-info", (req, res) => {
+  allowHeaderRead(res);
+  res.status(200).json({ status: "ok" });
+});
+
+// Estáticos (client.js, style.css, etc.)
+const publicDir = path.join(__dirname, "public");
 app.use(
   express.static(publicDir, {
     etag: false,
@@ -138,21 +93,12 @@ app.use(
   })
 );
 
-// Asegurar que / devuelve el index
-app.get("/", (req, res) => {
-  res.sendFile(path.join(publicDir, "index.html"));
-});
-
-/* ---------------------------
-   Socket.io + juego
----------------------------- */
+// --- Socket.io + juego ---
 const server = http.createServer(app);
-
-// Socket.io v2 => se crea así
 const io = socketio(server);
 
-const players = new Map(); // socket.id -> Player
-const collectibles = new Map(); // id -> Collectible
+const players = new Map();
+const collectibles = new Map();
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
