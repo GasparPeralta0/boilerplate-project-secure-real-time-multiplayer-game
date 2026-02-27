@@ -99,8 +99,6 @@ app.use(
    IMPORTANTE: lo servimos con Express (para que pase CORS + headers)
 -------------------------- */
 app.get("/socket.io/socket.io.js", (req, res) => {
-  applyCors(req, res);
-
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -109,7 +107,7 @@ app.get("/socket.io/socket.io.js", (req, res) => {
   res.setHeader("Surrogate-Control", "no-store");
   res.setHeader("X-Powered-By", "PHP 7.4.3");
 
-  res.type("application/javascript");
+  res.type("application/javascript; charset=UTF-8");
   res.sendFile(require.resolve("socket.io-client/dist/socket.io.js"));
 });
 
@@ -145,7 +143,7 @@ app.use((req, res) => {
 -------------------------- */
 const portNum = process.env.PORT || 3000;
 const server = http.createServer(app);
-const io = socketio(server, { serveClient: false });
+const io = socketio(server, { path: "/ws", serveClient: false });
 
 /* -------------------------
    Juego (carga .mjs desde CommonJS)

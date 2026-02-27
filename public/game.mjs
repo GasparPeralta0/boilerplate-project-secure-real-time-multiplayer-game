@@ -1,4 +1,4 @@
-const socket = io();
+const socket = io({ path: "/ws" });
 
 const canvas = document.getElementById("game-window");
 const ctx = canvas.getContext("2d");
