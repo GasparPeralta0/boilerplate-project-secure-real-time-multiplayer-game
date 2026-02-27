@@ -5,7 +5,6 @@ const http = require("http");
 const path = require("path");
 const express = require("express");
 const helmet = require("helmet");
-const cors = require("cors");
 const bodyParser = require("body-parser");
 const socketio = require("socket.io");
 const { pathToFileURL } = require("url");
@@ -16,16 +15,13 @@ const runner = require("./test-runner.js");
 const app = express();
 app.disable("x-powered-by");
 
-// Helmet 3.21.3 (FCC pide esa versión). Sin CSP para no romper.
+// Helmet 3.21.3 (sin CSP para no romper el boilerplate)
 app.use(helmet({ contentSecurityPolicy: false }));
 
 /* -------------------------
-   CORS (FCC tester usa credentials: "include")
-   => NO puede ser "*"
+   CORS para FCC tester
+   (usa credentials: "include" → NO puede ser "*")
 -------------------------- */
-// --- FCC CORS (browser) ---
-// El tester corre en *.freecodecamp.rocks (y a veces en freecodecamp.org)
-// --- FCC CORS (browser) ---
 const ALLOWED_ORIGINS = new Set([
   "https://secure-real-time-multiplayer-game.freecodecamp.rocks",
   "https://www.freecodecamp.org"
@@ -40,9 +36,10 @@ app.use((req, res, next) => {
   if (ALLOWED_ORIGINS.has(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-     res.setHeader("Access-Control-Expose-Headers", EXPOSE);
+    res.setHeader("Access-Control-Expose-Headers", EXPOSE);
   }
 
   // Preflight
@@ -52,91 +49,88 @@ app.use((req, res, next) => {
 
   next();
 });
-  
-
-// CORS + preflight para todo (antes que estáticos y rutas)
-app.use((req, res, next) => {
-  applyCors(req, res);
-  next();
-});
-
-app.options("*", (req, res) => {
-  applyCors(req, res);
-  res.sendStatus(204);
-});
 
 /* -------------------------
-   Headers 16-19 (SIEMPRE)
+   Headers requeridos (16-19)
+   en TODAS las respuestas de Express
 -------------------------- */
 app.use((req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("X-Content-Type-Options", "nosniff"); // 16
+  res.setHeader("X-XSS-Protection", "1; mode=block"); // 17
+
+  // 18 no-cache
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate"
+  );
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
   res.setHeader("Surrogate-Control", "no-store");
+
+  // 19 fake powered-by
   res.setHeader("X-Powered-By", "PHP 7.4.3");
+
   next();
 });
 
+// Body parsers
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-/* -------------------------
-   Static (sin cache)
--------------------------- */
+// Static (sin cache)
 app.use(
   "/public",
-  express.static(path.join(process.cwd(), "public"), {
+  express.static(process.cwd() + "/public", {
     etag: false,
     lastModified: false,
     setHeaders(res) {
-      // refuerzo
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
-      res.setHeader("Surrogate-Control", "no-store");
+      res.setHeader("Cache-Control", "no-store");
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("X-Powered-By", "PHP 7.4.3");
-    },
+    }
+  })
+);
+
+app.use(
+  "/assets",
+  express.static(process.cwd() + "/assets", {
+    etag: false,
+    lastModified: false,
+    setHeaders(res) {
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("X-Powered-By", "PHP 7.4.3");
+    }
   })
 );
 
 /* -------------------------
-   Socket.io client JS
-   IMPORTANTE: lo servimos con Express (para que pase CORS + headers)
--------------------------- */
-app.get("/socket.io/socket.io.js", (req, res) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.setHeader("Surrogate-Control", "no-store");
-  res.setHeader("X-Powered-By", "PHP 7.4.3");
-
-  res.type("application/javascript; charset=UTF-8");
-  res.sendFile(require.resolve("socket.io-client/dist/socket.io.js"));
-});
-
-/* -------------------------
-   Endpoint del tester
+   Endpoint que usa el tester
 -------------------------- */
 app.get("/_api/app-info", (req, res) => {
-  applyCors(req, res);
   res.json({ status: "ok" });
 });
 
 /* -------------------------
-   Home
+   Index
 -------------------------- */
 app.get("/", (req, res) => {
-  applyCors(req, res);
-  res.sendFile(path.join(process.cwd(), "views", "index.html"));
+  res.sendFile(process.cwd() + "/views/index.html");
 });
 
-// FCC testing routes
+/* -------------------------
+   FCC testing routes
+-------------------------- */
 fccTestingRoutes(app);
+
+/* -------------------------
+   Servir socket.io client JS
+   (para que el tester pueda leer headers)
+-------------------------- */
+app.get("/socket.io/socket.io.js", (req, res) => {
+  res.type("application/javascript");
+  res.sendFile(require.resolve("socket.io-client/dist/socket.io.js"));
+});
 
 /* -------------------------
    404
@@ -145,79 +139,72 @@ app.use((req, res) => {
   res.status(404).type("text").send("Not Found");
 });
 
-/* -------------------------
-   Server + Socket.io v2
-   serveClient: false => para que NO intercepte /socket.io/socket.io.js
--------------------------- */
 const portNum = process.env.PORT || 3000;
-const server = http.createServer(app);
-const io = socketio(server, { path: "/ws", serveClient: false });
 
 /* -------------------------
-   Juego (carga .mjs desde CommonJS)
+   HTTP server + socket.io v2
 -------------------------- */
-const players = new Map();
-const collectibles = new Map();
+const server = http.createServer(app);
+const io = socketio(server);
+
+/* -------------------------
+   Game classes (.mjs) desde CJS
+-------------------------- */
+async function loadGameClasses() {
+  const playerUrl = pathToFileURL(path.join(process.cwd(), "public", "Player.mjs")).href;
+  const collectibleUrl = pathToFileURL(path.join(process.cwd(), "public", "Collectible.mjs")).href;
+
+  const modPlayer = await import(playerUrl);
+  const modCollectible = await import(collectibleUrl);
+
+  return {
+    Player: modPlayer.default ?? modPlayer.Player,
+    Collectible: modCollectible.default ?? modCollectible.Collectible
+  };
+}
+
+let classesPromise = null;
+function getClasses() {
+  if (!classesPromise) classesPromise = loadGameClasses();
+  return classesPromise;
+}
+
+/* -------------------------
+   Game state
+-------------------------- */
+const players = new Map();       // socket.id -> player object
+const collectibles = new Map();  // id -> collectible object
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-let classesPromise = null;
-function getClasses() {
-  if (!classesPromise) {
-    const playerUrl = pathToFileURL(path.join(process.cwd(), "public", "Player.mjs")).href;
-    const collectibleUrl = pathToFileURL(path.join(process.cwd(), "public", "Collectible.mjs")).href;
-
-    classesPromise = Promise.all([import(playerUrl), import(collectibleUrl)]).then(
-      ([modPlayer, modCollectible]) => ({
-        Player: modPlayer.default ?? modPlayer.Player,
-        Collectible: modCollectible.default ?? modCollectible.Collectible,
-      })
-    );
-  }
-  return classesPromise;
-}
-
 async function spawnCollectible() {
   const { Collectible } = await getClasses();
   const id = `c_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
-  // canvas 640x480, item 18x18 => limitamos
-  const c = new Collectible({ id, x: randomInt(20, 640 - 18 - 20), y: randomInt(20, 480 - 18 - 20), value: 1 });
+  const c = new Collectible({ id, x: randomInt(20, 620), y: randomInt(20, 440), value: 1 });
   collectibles.set(c.id, c);
   return c;
 }
 
+// mínimo 1 collectible
+spawnCollectible().catch(console.error);
+
 function snapshot() {
   return {
-    players: Array.from(players.values()).map((p) => ({
-      id: p.id,
-      x: p.x,
-      y: p.y,
-      score: p.score,
-    })),
-    collectibles: Array.from(collectibles.values()).map((c) => ({
-      id: c.id,
-      x: c.x,
-      y: c.y,
-    })),
+    players: Array.from(players.values()).map(p => ({ id: p.id, x: p.x, y: p.y, score: p.score })),
+    collectibles: Array.from(collectibles.values()).map(c => ({ id: c.id, x: c.x, y: c.y, value: c.value }))
   };
 }
-
-// 1 collectible mínimo
-getClasses()
-  .then(() => spawnCollectible())
-  .catch((e) => console.error("Error loading game classes:", e));
 
 io.on("connection", async (socket) => {
   const { Player } = await getClasses();
 
   const p = new Player({
     id: socket.id,
-    x: randomInt(40, 640 - 24 - 40),
-    y: randomInt(40, 480 - 24 - 40),
-    score: 0,
+    x: randomInt(40, 580),
+    y: randomInt(40, 420),
+    score: 0
   });
 
   players.set(socket.id, p);
@@ -236,27 +223,27 @@ io.on("connection", async (socket) => {
     if (!allowed.has(direction)) return;
     if (!Number.isFinite(pixels) || pixels <= 0 || pixels > 40) return;
 
-    // Player.mjs (por tests) mueve X solamente. Para el juego real movemos Y acá.
+    // Player.mjs (para tests) mueve X con movePlayer; Y lo manejamos acá
     if (direction === "up") me.y -= pixels;
     if (direction === "down") me.y += pixels;
     if (direction === "left" || direction === "right") me.movePlayer(direction, pixels);
 
-    // límites
+    // límites del canvas 640x480 (avatar 24x24)
     me.x = Math.max(0, Math.min(640 - 24, me.x));
     me.y = Math.max(0, Math.min(480 - 24, me.y));
 
-    // colisión: tu Player.mjs usa igualdad exacta x/y. Entonces hacemos exacta acá también.
+    // collision (simple)
     for (const c of collectibles.values()) {
-      if (me.x === c.x && me.y === c.y) {
+      if (me.collision(c)) {
         me.score += c.value ?? 1;
         collectibles.delete(c.id);
-        const newC = await spawnCollectible();
 
+        const newC = await spawnCollectible();
         io.emit("collectibleTaken", {
           playerId: me.id,
           collectibleId: c.id,
-          newCollectible: { id: newC.id, x: newC.x, y: newC.y },
-          score: me.score,
+          newCollectible: { id: newC.id, x: newC.x, y: newC.y, value: newC.value ?? 1 },
+          score: me.score
         });
         break;
       }
