@@ -29,7 +29,7 @@ const FCC_ORIGINS = new Set([
 const EXPOSED_HEADERS =
   "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type";
 
-function applyFccCors(req, res) {
+function applyFccCorsAll(req, res) {
   const origin = req.headers.origin;
   if (origin && FCC_ORIGINS.has(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
@@ -40,10 +40,16 @@ function applyFccCors(req, res) {
   }
 }
 
-// Preflight
-app.options("/_api/app-info", (req, res) => {
-  applyFccCors(req, res);
-  return res.sendStatus(204);
+// ✅ Para TODAS las respuestas (incluye / y estáticos)
+app.use((req, res, next) => {
+  applyFccCorsAll(req, res);
+  next();
+});
+
+// ✅ Preflight global
+app.options("*", (req, res) => {
+  applyFccCorsAll(req, res);
+  res.sendStatus(204);
 });
 
 // Endpoint que usa el tester
@@ -75,8 +81,8 @@ app.use(express.static(publicDir, {
   }
 }));
 
-app.get("/", (req, res) => {
-  res.sendFile(path.join(publicDir, "index.html"));
+app.get("/_api/app-info", (req, res) => {
+  res.json({ status: "ok" });
 });
 
 const server = http.createServer(app);
