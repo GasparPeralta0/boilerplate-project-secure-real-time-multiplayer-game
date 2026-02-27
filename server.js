@@ -25,6 +25,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 -------------------------- */
 // --- FCC CORS (browser) ---
 // El tester corre en *.freecodecamp.rocks (y a veces en freecodecamp.org)
+// --- FCC CORS (browser) ---
 const ALLOWED_ORIGINS = new Set([
   "https://secure-real-time-multiplayer-game.freecodecamp.rocks",
   "https://www.freecodecamp.org"
@@ -41,16 +42,16 @@ app.use((req, res, next) => {
     res.setHeader("Vary", "Origin");
     res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    res.setHeader("Access-Control-Expose-Headers", EXPOSE);
-    // OJO: NO uses credentials true con "*"
-    // y no hace falta para el tester, así que NO lo ponemos.
-   }
+     res.setHeader("Access-Control-Expose-Headers", EXPOSE);
   }
-)
+
   // Preflight
-  if (req.method === "OPTIONS") return res.sendStatus(204);
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
 
   next();
+});
   
 
 // CORS + preflight para todo (antes que estáticos y rutas)
