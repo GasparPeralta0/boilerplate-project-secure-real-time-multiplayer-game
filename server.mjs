@@ -81,9 +81,13 @@ app.use((req, res, next) => {
    Endpoint que usa el tester
 ---------------------------- */
 app.get("/_api/app-info", (req, res) => {
-  applyFccCors(req, res);
+  // ✅ CORS abierto SOLO para este endpoint (para que el tester lea headers sí o sí)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Expose-Headers",
+    "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type"
+  );
 
-  // Reafirmamos headers requeridos (por si el tester mira aquí)
+  // ✅ Headers requeridos por los tests
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Cache-Control", "no-store");
@@ -93,6 +97,16 @@ app.get("/_api/app-info", (req, res) => {
   res.setHeader("X-Powered-By", "PHP/7.4.3");
 
   res.status(200).json({ status: "ok" });
+});
+
+app.options("/_api/app-info", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Expose-Headers",
+    "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type"
+  );
+  res.sendStatus(204);
 });
 
 /* ---------------------------
