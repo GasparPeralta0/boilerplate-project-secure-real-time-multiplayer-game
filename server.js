@@ -215,6 +215,19 @@ function snapshot() {
   };
 }
 
+app.get("/socket.io/socket.io.js", (req, res) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
+  res.setHeader("X-Powered-By", "PHP 7.4.3");
+
+  res.sendFile(require.resolve("socket.io-client/dist/socket.io.js"));
+});
+
+
 io.on("connection", (socket) => {
   // Cargamos clases una sola vez y las reutilizamos
   getClasses()
