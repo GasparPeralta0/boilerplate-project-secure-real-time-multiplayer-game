@@ -12,6 +12,36 @@ const runner = require("./test-runner.js");
 
 const app = express();
 app.disable("x-powered-by");
+const EXPOSE =
+  "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type";
+
+function setFccCors(req, res) {
+  const origin = req.headers.origin;
+
+  const allowed =
+    origin === "https://www.freecodecamp.org" ||
+    origin === "https://secure-real-time-multiplayer-game.freecodecamp.rocks" ||
+    (typeof origin === "string" && origin.endsWith(".freecodecamp.rocks"));
+
+  if (allowed) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Expose-Headers", EXPOSE);
+  }
+}
+
+app.use((req, res, next) => {
+  setFccCors(req, res);
+  next();
+});
+
+app.options("*", (req, res) => {
+  setFccCors(req, res);
+  res.sendStatus(204);
+});
 
 // Helmet 3.21.3 (sin CSP para no romper boilerplate)
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -25,28 +55,6 @@ const FCC_ORIGINS = new Set([
   "https://www.freecodecamp.org",
   "https://www.freecodecamp.org/espanol",
 ]);
-
-const EXPOSE =
-  "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type";
-
-function setFccCors(req, res) {
-  const origin = req.headers.origin;
-
-  const ok =
-    origin === "https://www.freecodecamp.org" ||
-    origin === "https://secure-real-time-multiplayer-game.freecodecamp.rocks" ||
-    (typeof origin === "string" && origin.endsWith(".freecodecamp.rocks"));
-
-  if (ok) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    res.setHeader("Access-Control-Expose-Headers", EXPOSE);
-  }
-}
-
 /* ---------------------------
    Body
 ---------------------------- */
