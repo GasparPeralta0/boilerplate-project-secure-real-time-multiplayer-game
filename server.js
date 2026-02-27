@@ -55,21 +55,16 @@ app.use((req, res, next) => {
    en TODAS las respuestas de Express
 -------------------------- */
 app.use((req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff"); // 16
-  res.setHeader("X-XSS-Protection", "1; mode=block"); // 17
-
-  // 18 no-cache
-  res.setHeader(
-    "Cache-Control",
-    "no-store, no-cache, must-revalidate, proxy-revalidate"
-  );
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.setHeader("Surrogate-Control", "no-store");
-
-  // 19 fake powered-by
-  res.setHeader("X-Powered-By", "PHP 7.4.3");
-
+  // Fuerza headers también para el archivo del cliente socket.io
+  if (req.path === "/socket.io/socket.io.js") {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("Surrogate-Control", "no-store");
+    res.setHeader("X-Powered-By", "PHP 7.4.3");
+  }
   next();
 });
 
@@ -129,6 +124,14 @@ fccTestingRoutes(app);
 -------------------------- */
 app.get("/socket.io/socket.io.js", (req, res) => {
   res.type("application/javascript");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("X-Powered-By", "PHP 7.4.3");
+
   res.sendFile(require.resolve("socket.io-client/dist/socket.io.js"));
 });
 
