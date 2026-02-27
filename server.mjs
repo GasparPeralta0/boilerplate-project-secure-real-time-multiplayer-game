@@ -2,24 +2,23 @@ import http from "http";
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
 
-// Socket.io v2 (CommonJS) + ESM (mjs) => import robusto
+// Socket.io v2 (CommonJS) + ESM
 import socketIoPkg from "socket.io";
 const socketio = socketIoPkg.default ?? socketIoPkg;
 
 import { Player } from "./Player.mjs";
-import { Collectible } from "./Collectible.mjs";
-import path from "path";
-import { fileURLToPath } from "url";
+ import { Collectible } from "./Collectible.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.disable("x-powered-by");
-// CORS: permitir solo a freeCodeCamp para que el tester pueda hacer fetch
-import cors from "cors";
+ app.disable("x-powered-by");
 
+// ---- CORS para freeCodeCamp + exponer headers ----
 const FCC_ORIGINS = [
   "https://www.freecodecamp.org",
   "https://www.freecodecamp.org/espanol",
@@ -45,8 +44,7 @@ app.use(cors({
   exposedHeaders: EXPOSED
 }));
 
-// Por si el tester hace preflight (OPTIONS) a esa ruta:
-app.options("/_api/app-info", cors({
+ app.options("/_api/app-info", cors({
   origin: FCC_ORIGINS,
   methods: ["GET", "HEAD", "OPTIONS"],
   allowedHeaders: ["Content-Type"],
