@@ -1,6 +1,8 @@
 require("regenerator-runtime/runtime");
 require("dotenv").config();
+
 const http = require("http");
+const path = require("path");
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
@@ -14,53 +16,8 @@ const app = express();
 app.disable("x-powered-by");
 
 /* ---------------------------
-   Seguridad requerida (16-19)
+   CORS para FCC + exponer headers
 ---------------------------- */
-app.use(helmet({ contentSecurityPolicy: false }));
-
-app.use((req, res, next) => {
-  // 16) nosniff
-  res.setHeader("X-Content-Type-Options", "nosniff");
-
-  // 17) anti-XSS (extra)
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-
-  // 18) no cache
-  res.setHeader(
-    "Cache-Control",
-    "no-store, no-cache, must-revalidate, proxy-revalidate"
-  );
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.setHeader("Surrogate-Control", "no-store");
-
-  // 19) fake PHP header
-  res.setHeader("X-Powered-By", "PHP 7.4.3");
-
-  next();
-});
-
-app.use((req, res, next) => {
-  // Log solo para endpoints típicos del tester
-  if (req.path === "/" || req.path.startsWith("/_api")) {
-    res.on("finish", () => {
-      console.log("[DEBUG]", req.method, req.path, "->", res.statusCode, {
-        "x-content-type-options": res.getHeader("X-Content-Type-Options"),
-        "x-xss-protection": res.getHeader("X-XSS-Protection"),
-        "cache-control": res.getHeader("Cache-Control"),
-        "surrogate-control": res.getHeader("Surrogate-Control"),
-        "x-powered-by": res.getHeader("X-Powered-By"),
-        "content-type": res.getHeader("Content-Type"),
-      });
-    });
-  }
-  next();
-});
-
-/* ---------------------------------------------------
-   CORS para FCC: dejarlo abierto (boilerplate style)
-   + Expose-Headers para que el tester pueda leerlos
----------------------------------------------------- */
 app.use(
   cors({
     origin: "*",
@@ -79,27 +36,85 @@ app.use(
 );
 
 /* ---------------------------
-   Middleware estándar FCC
+   Helmet (v3.21.3) + headers requeridos
 ---------------------------- */
-app.use("/public", express.static(process.cwd() + "/public", {
-  etag: false,
-  lastModified: false,
-  setHeaders(res) {
-    res.setHeader("Cache-Control", "no-store");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-Powered-By", "PHP/7.4.3");
-  }
-}));
+app.use(helmet({ contentSecurityPolicy: false }));
 
-app.use("/assets", express.static(process.cwd() + "/assets", {
-  etag: false,
-  lastModified: false,
-  setHeaders(res) {
-    res.setHeader("Cache-Control", "no-store");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-Powered-By", "PHP/7.4.3");
-  }
-}));
+app.use((req, res, next) => {
+  // 16) nosniff
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  // 17) anti-XSS (extra)
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  // 18) no cache
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate"
+  );
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
+  // 19) fake PHP header EXACTO
+  res.setHeader("X-Powered-By", "PHP 7.4.3");
+
+  next();
+});
+
+/* ---------------------------
+   Override del cliente socket.io CON headers (DEBE IR ANTES de io)
+---------------------------- */
+app.get("/socket.io/socket.io.js", (req, res) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
+  res.setHeader("X-Powered-By", "PHP 7.4.3");
+
+  res.type("application/javascript");
+  res.sendFile(require.resolve("socket.io-client/dist/socket.io.js"));
+});
+
+/* ---------------------------
+   Static (sin cache) + headers consistentes
+---------------------------- */
+app.use(
+  "/public",
+  express.static(path.join(process.cwd(), "public"), {
+    etag: false,
+    lastModified: false,
+    setHeaders(res) {
+      res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate"
+      );
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("Surrogate-Control", "no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("X-Powered-By", "PHP 7.4.3");
+    },
+  })
+);
+
+app.use(
+  "/assets",
+  express.static(path.join(process.cwd(), "assets"), {
+    etag: false,
+    lastModified: false,
+    setHeaders(res) {
+      res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate"
+      );
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("Surrogate-Control", "no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("X-Powered-By", "PHP 7.4.3");
+    },
+  })
+);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -108,63 +123,39 @@ app.use(bodyParser.urlencoded({ extended: true }));
    Endpoint que el tester usa
 ---------------------------- */
 app.get("/_api/app-info", (req, res) => {
-  // CORS + expose para que FCC lea headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Expose-Headers",
-    "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type"
-  );
   res.json({ status: "ok" });
 });
 
 /* ---------------------------
    Index
 ---------------------------- */
-app.route("/").get(function (req, res) {
-  // Asegura que FCC pueda leer headers desde /
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Expose-Headers",
-    "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type"
-  );
-  res.sendFile(process.cwd() + "/views/index.html");
+app.get("/", (req, res) => {
+  res.sendFile(path.join(process.cwd(), "views", "index.html"));
 });
 
 /* ---------------------------
-   Rutas de testing FCC
+   Rutas FCC
 ---------------------------- */
 fccTestingRoutes(app);
 
-app.use((req, res, next) => {
-  // Si ya se enviaron headers, no se puede
-  if (res.headersSent) return next();
-
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-  res.setHeader("Surrogate-Control", "no-store");
-  res.setHeader("Cache-Control", "no-store");
-  res.setHeader("X-Powered-By", "PHP/7.4.3");
-
-  next();
-});
-
 /* ---------------------------
-   404
+   404 (también hereda headers del middleware global)
 ---------------------------- */
-app.use(function (req, res) {
+app.use((req, res) => {
   res.status(404).type("text").send("Not Found");
 });
 
-const portNum = process.env.PORT || 3000;
-
 /* ---------------------------
-   Crear server HTTP + Socket.io v2
+   Server HTTP + Socket.io v2
 ---------------------------- */
+const portNum = process.env.PORT || 3000;
 const server = http.createServer(app);
+
+// Importante: el override /socket.io/socket.io.js ya fue definido arriba
 const io = socketio(server);
 
 /* ---------------------------
-   Juego (usa import() dinámico para .mjs)
+   Juego (usar clases REALES del server, no las de /public)
 ---------------------------- */
 const players = new Map();
 const collectibles = new Map();
@@ -174,14 +165,16 @@ function randomInt(min, max) {
 }
 
 async function loadGameClasses() {
-  const modPlayer = await import("./public/Player.mjs");
-  const modCollectible = await import("./public/Collectible.mjs");
+  // ✅ clases reales del juego (raíz)
+  const modPlayer = await import("./Player.mjs");
+  const modCollectible = await import("./Collectible.mjs");
 
-  const Player = modPlayer.default ?? modPlayer.Player;
-  const Collectible = modCollectible.default ?? modCollectible.Collectible;
+  const Player = modPlayer.Player ?? modPlayer.default;
+  const Collectible = modCollectible.Collectible ?? modCollectible.default;
 
   return { Player, Collectible };
 }
+
 let classesPromise = null;
 function getClasses() {
   if (!classesPromise) classesPromise = loadGameClasses();
@@ -196,7 +189,6 @@ async function spawnCollectible() {
   return c;
 }
 
-// mínimo 1 coleccionable
 spawnCollectible();
 
 function snapshot() {
@@ -211,25 +203,12 @@ function snapshot() {
       id: c.id,
       x: c.x,
       y: c.y,
+      value: c.value,
     })),
   };
 }
 
-app.get("/socket.io/socket.io.js", (req, res) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.setHeader("Surrogate-Control", "no-store");
-  res.setHeader("X-Powered-By", "PHP 7.4.3");
-
-  res.sendFile(require.resolve("socket.io-client/dist/socket.io.js"));
-});
-
-
 io.on("connection", (socket) => {
-  // Cargamos clases una sola vez y las reutilizamos
   getClasses()
     .then(({ Player }) => {
       const p = new Player(socket.id, randomInt(40, 740), randomInt(40, 540));
@@ -247,7 +226,8 @@ io.on("connection", (socket) => {
         const me = players.get(socket.id);
         if (!me) return;
 
-        const direction = typeof data?.direction === "string" ? data.direction : "";
+        const direction =
+          typeof data?.direction === "string" ? data.direction : "";
         const pixels = Number(data?.pixels);
 
         const allowed = new Set(["up", "down", "left", "right"]);
@@ -266,14 +246,19 @@ io.on("connection", (socket) => {
             io.emit("collectibleTaken", {
               playerId: me.id,
               collectibleId: c.id,
-              newCollectible: { id: newC.id, x: newC.x, y: newC.y },
+              newCollectible: { id: newC.id, x: newC.x, y: newC.y, value: newC.value },
               score: me.score,
             });
             break;
           }
         }
 
-        io.emit("playerMoved", { id: me.id, x: me.x, y: me.y, score: me.score });
+        io.emit("playerMoved", {
+          id: me.id,
+          x: me.x,
+          y: me.y,
+          score: me.score,
+        });
       });
 
       socket.on("disconnect", () => {
@@ -281,10 +266,9 @@ io.on("connection", (socket) => {
         io.emit("playerLeft", { id: socket.id });
       });
     })
-    .catch((err) => {
-      console.error("Failed to load Player class:", err);
-    });
+    .catch((err) => console.error("Failed to load game classes:", err));
 });
+
 /* ---------------------------
    Levantar server + tests
 ---------------------------- */
