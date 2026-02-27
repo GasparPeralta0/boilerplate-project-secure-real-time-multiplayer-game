@@ -1,7 +1,6 @@
 import http from "http";
 import express from "express";
 import helmet from "helmet";
-import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -10,26 +9,56 @@ import socketIoPkg from "socket.io";
 const socketio = socketIoPkg.default ?? socketIoPkg;
 
 import { Player } from "./Player.mjs";
- import { Collectible } from "./Collectible.mjs";
+import { Collectible } from "./Collectible.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
- app.disable("x-powered-by");
+app.disable("x-powered-by");
 
-// ---- CORS para freeCodeCamp + exponer headers ----
+/* ---------------------------
+   Helmet + headers de seguridad
+---------------------------- */
+app.use(helmet({ contentSecurityPolicy: false }));
+
+app.use((req, res, next) => {
+  // Anti MIME-sniff
+  res.setHeader("X-Content-Type-Options", "nosniff");
+
+  // Anti XSS (extra)
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+
+  // No cache
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate"
+  );
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
+
+  // “Generado por PHP 7.4.3”
+  res.setHeader("X-Powered-By", "PHP/7.4.3");
+
+  next();
+});
+
+/* -----------------------------------------
+   CORS SOLO para freeCodeCamp + Expose-Headers
+   (para que el tester pueda LEER tus headers)
+------------------------------------------ */
 const FCC_ORIGINS = new Set([
   "https://www.freecodecamp.org",
   "https://www.freecodecamp.org/espanol",
   "https://freecodecamp.org",
-  "https://freecodecamp.org/espanol"
+  "https://freecodecamp.org/espanol",
 ]);
 
 const EXPOSED_HEADERS =
   "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type";
 
-function applyFccCorsAll(req, res) {
+function applyFccCors(req, res) {
   const origin = req.headers.origin;
   if (origin && FCC_ORIGINS.has(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
@@ -40,57 +69,62 @@ function applyFccCorsAll(req, res) {
   }
 }
 
-// ✅ Para TODAS las respuestas (incluye / y estáticos)
+// Aplica CORS (solo si el Origin es FCC)
 app.use((req, res, next) => {
-  applyFccCorsAll(req, res);
+  applyFccCors(req, res);
+  // Preflight universal sin app.options("*")
+  if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
 
-// ✅ Preflight global
-app.options("*", (req, res) => {
-  applyFccCorsAll(req, res);
-  res.sendStatus(204);
-});
-
-// Endpoint que usa el tester
+/* ---------------------------
+   Endpoint que usa el tester
+---------------------------- */
 app.get("/_api/app-info", (req, res) => {
   applyFccCors(req, res);
 
-  // ✅ Headers requeridos por los tests (los mismos que validan)
+  // Reafirmamos headers requeridos (por si el tester mira aquí)
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
   res.setHeader("Surrogate-Control", "no-store");
-   res.setHeader("X-Powered-By", "PHP/7.4.3");
+  res.setHeader("X-Powered-By", "PHP/7.4.3");
 
-   res.json({ status: "ok" });
+  res.status(200).json({ status: "ok" });
 });
 
-// Servir estáticos sin cache
+/* ---------------------------
+   Estáticos
+---------------------------- */
 const publicDir = path.join(__dirname, "public");
 
-app.use(express.static(publicDir, {
-  etag: false,
-  lastModified: false,
-  setHeaders(res) {
-    res.setHeader("Cache-Control", "no-store");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-Powered-By", "PHP/7.4.3");
-  }
-}));
+app.use(
+  express.static(publicDir, {
+    etag: false,
+    lastModified: false,
+    setHeaders(res) {
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("X-Powered-By", "PHP/7.4.3");
+    },
+  })
+);
 
-app.get("/_api/app-info", (req, res) => {
-  res.json({ status: "ok" });
+// Asegurar que / devuelve el index
+app.get("/", (req, res) => {
+  res.sendFile(path.join(publicDir, "index.html"));
 });
 
+/* ---------------------------
+   Socket.io + juego
+---------------------------- */
 const server = http.createServer(app);
 
-// Socket.io v2 => se crea así (NO new Server)
+// Socket.io v2 => se crea así
 const io = socketio(server);
 
-// Estado del juego
 const players = new Map(); // socket.id -> Player
 const collectibles = new Map(); // id -> Collectible
 
@@ -105,7 +139,6 @@ function spawnCollectible() {
   return c;
 }
 
-// mínimo 1 coleccionable
 spawnCollectible();
 
 function snapshot() {
@@ -149,7 +182,6 @@ io.on("connection", (socket) => {
 
     me.movePlayer(direction, pixels);
 
-    // colisión con coleccionables
     for (const c of collectibles.values()) {
       if (me.collision(c)) {
         me.score += c.value ?? 1;
@@ -177,4 +209,4 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Listening on port ${PORT}`));  
+server.listen(PORT, () => console.log(`Listening on port ${PORT}`));
