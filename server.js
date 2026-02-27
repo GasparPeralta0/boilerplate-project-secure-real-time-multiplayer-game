@@ -15,23 +15,40 @@ app.disable("x-powered-by");
 const EXPOSE =
   "x-content-type-options, x-xss-protection, cache-control, pragma, expires, surrogate-control, x-powered-by, content-type";
 
-function setFccCors(req, res) {
+function isFccOrigin(origin) {
+  if (!origin) return false;
+  if (origin === "https://www.freecodecamp.org") return true;
+  if (origin === "https://secure-real-time-multiplayer-game.freecodecamp.rocks") return true;
+  if (origin.endsWith(".freecodecamp.rocks")) return true;
+  return false;
+}
+
+app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  const allowed =
-    origin === "https://www.freecodecamp.org" ||
-    origin === "https://secure-real-time-multiplayer-game.freecodecamp.rocks" ||
-    (typeof origin === "string" && origin.endsWith(".freecodecamp.rocks"));
+  // Siempre exponemos headers (no molesta)
+  res.setHeader("Access-Control-Expose-Headers", EXPOSE);
+  res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (allowed) {
+  if (isFccOrigin(origin)) {
+    // ✅ Para FCC: origin exacto + credentials
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Vary", "Origin");
+  } else if (origin) {
+    // ✅ Para cualquier otro origin: origin exacto (sin credentials)
+    // (evita problemas de browsers con "*" + otros headers)
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    res.setHeader("Access-Control-Expose-Headers", EXPOSE);
+  } else {
+    // requests sin origin (curl / mismo origen)
+    // no hace falta setear nada
   }
-}
+
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 
 app.use((req, res, next) => {
   setFccCors(req, res);
