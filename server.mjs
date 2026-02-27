@@ -8,7 +8,7 @@ import { fileURLToPath } from "url";
 import socketIoPkg from "socket.io";
 const socketio = socketIoPkg.default ?? socketIoPkg;
 
-import { Player } from "./Player.mjs";
+import { Player } from "./Player.js";
 import { Collectible } from "./Collectible.mjs";
 
 const __filename = fileURLToPath(import.meta.url);

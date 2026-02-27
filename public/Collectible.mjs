@@ -1,0 +1,1 @@
+export { Collectible as default } from "./Collectible.js";

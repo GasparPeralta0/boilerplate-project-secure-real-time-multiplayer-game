@@ -4,8 +4,8 @@
   "description": "Information Security 5: Secure Real-Time Multiplayer Game",
   "main": "server.js",
   "scripts": {
-    "start": "node server.mjs",
-    "test": "PORT=3005 mocha --require @babel/register --recursive --exit --ui tdd tests/"
+    "start": "node server.js",
+    "test": "set PORT=3005 && mocha --require @babel/register --recursive --exit --ui tdd tests/"
   },
   "dependencies": {
     "@babel/core": "^7.7.5",
@@ -20,6 +20,7 @@
     "helmet": "^3.21.3",
     "jsdom": "^16.2.0",
     "mocha": "^7.1.0",
+    "regenerator-runtime": "^0.14.1",
     "socket.io": "^2.3.0",
     "socket.io-client": "^2.3.0"
   },
